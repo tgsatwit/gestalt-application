@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isParent() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'parent';
+    }
+    
+    function isSpecialist() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'specialist';
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /children/{childId} {
+      function isPendingOrConnectedSpecialist() {
+        let pendingSpecialists = resource.data.pendingSpecialists;
+        let specialistIds = resource.data.specialistIds;
+        return (specialistIds != null && request.auth.uid in specialistIds) ||
+          (pendingSpecialists != null && 
+          pendingSpecialists.hasAny([{
+            'email': request.auth.token.email.lower(),
+            'status': 'pending'
+          }]));
+      }
+
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.primaryParentId ||
+        request.auth.uid in resource.data.parentIds ||
+        request.auth.uid in resource.data.specialistIds ||
+        isPendingOrConnectedSpecialist()
+      );
+      allow create: if isParent();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.primaryParentId ||
+        request.auth.uid in resource.data.parentIds ||
+        request.auth.uid in resource.data.specialistIds ||
+        isPendingOrConnectedSpecialist()
+      );
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.primaryParentId;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.parentId ||
+        request.auth.uid == resource.data.specialistId ||
+        request.auth.uid in get(/databases/$(database)/documents/children/$(resource.data.childId)).data.parentIds
+      );
+      allow create: if isAuthenticated() && (
+        isParent() || isSpecialist()
+      );
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.parentId ||
+        request.auth.uid == resource.data.specialistId ||
+        request.auth.uid in get(/databases/$(database)/documents/children/$(resource.data.childId)).data.parentIds
+      );
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.parentId ||
+        request.auth.uid == resource.data.specialistId
+      );
+    }
+
+    match /connectionRequests/{requestId} {
+      allow read: if isAuthenticated() && (
+        request.auth.token.email.lower() == resource.data.recipientEmail.lower() ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.token.email.lower() == resource.data.recipientEmail.lower() ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId
+      );
+      allow delete: if isAuthenticated() && (
+        request.auth.token.email.lower() == resource.data.recipientEmail.lower() ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId
+      );
+    }
+
+    match /connectionHistory/{historyId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    match /forumPosts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.authorId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'commentCount'])
+      );
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    match /forumComments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.authorId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+      );
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    match /milestones/{milestoneId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid in get(/databases/$(database)/documents/children/$(resource.data.childId)).data.parentIds ||
+        (resource.data.specialistCanView && request.auth.uid in get(/databases/$(database)/documents/children/$(resource.data.childId)).data.specialistIds)
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid in get(/databases/$(database)/documents/children/$(resource.data.childId)).data.parentIds
+      );
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid in get(/databases/$(database)/documents/children/$(resource.data.childId)).data.parentIds
+      );
+    }
+  }
+}
