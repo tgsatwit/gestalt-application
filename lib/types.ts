@@ -1,20 +1,10 @@
 // Existing types remain...
 
-export interface Session {
+export interface User {
   id: string;
-  childId: string;
-  childName: string;
-  parentId: string;
-  parentName: string;
-  specialistId?: string;
-  specialistName: string;
-  specialistType: 'account' | 'vanity';
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  date: Date;
-  startTime: string;
-  endTime: string;
-  notes?: string;
-  privateNotes?: string; // Only visible to creator
+  email: string;
+  name: string;
+  userType: 'parent' | 'specialist' | 'admin';
   createdAt: Date;
   updatedAt?: Date;
 }

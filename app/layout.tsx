@@ -1,19 +1,14 @@
-import './globals.css'
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from '@/components/ui/sonner'
-import { AuthProvider } from '@/contexts/auth-context'
+import { AppShell } from "@/components/layout/app-shell"
+import "./globals.css"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'Gestalt | Supporting Language Development',
-  description: 'Empowering parents in their children\'s language development journey',
+  title: "Gestalt | Supporting Language Development",
+  description: "Empowering parents in their children's language development journey",
 }
-
-// Mark as dynamic to prevent static optimization
-export const dynamic = 'force-dynamic'
 
 export default function RootLayout({
   children,
@@ -23,17 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   )
